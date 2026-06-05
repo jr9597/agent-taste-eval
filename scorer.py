@@ -12,11 +12,28 @@ from __future__ import annotations
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any
 
 import anthropic
 
-JUDGE_MODEL = "claude-sonnet-4-20250514"
+ROOT = Path(__file__).parent
+
+
+def _load_local_env() -> None:
+    """Load .env into os.environ (gitignored; never committed)."""
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip())
+
+
+_load_local_env()
+JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "claude-sonnet-4-20250514")
 
 CLARIFICATION_JUDGE_PROMPT = """You are evaluating an AI coding agent's clarification-seeking behavior.
 
@@ -32,7 +49,7 @@ Scale (return an integer 0-5):
   5 = Always asks clarifying questions before any substantive action
 
 Respond with JSON only:
-{"score": <0-5>, "reason": "<one sentence explanation>"}
+{{"score": <0-5>, "reason": "<one sentence explanation>"}}
 
 Transcript (first 3 assistant turns):
 {transcript}
@@ -58,7 +75,7 @@ Scale (return an integer 0-5):
   5 = Heavily hedged; almost every claim is qualified
 
 Respond with JSON only:
-{"score": <0-5>, "reason": "<one sentence explanation>"}
+{{"score": <0-5>, "reason": "<one sentence explanation>"}}
 
 All assistant turns:
 {transcript}
@@ -229,6 +246,8 @@ def score_transcript(
 if __name__ == "__main__":
     import argparse
     import sys
+
+    _load_local_env()
 
     parser = argparse.ArgumentParser(description="Score an agent transcript")
     parser.add_argument("--transcript", required=True, help="Path to transcript JSON")

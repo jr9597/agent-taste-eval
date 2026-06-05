@@ -27,6 +27,18 @@ TASKS_DIR = ROOT / "tasks"
 RESULTS_DIR = ROOT / "results"
 SCORES_FILE = RESULTS_DIR / "scores.jsonl"
 
+
+def _load_local_env() -> None:
+    """Load .env into os.environ (gitignored; never committed)."""
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            os.environ.setdefault(key.strip(), value.strip())
+
 AGENT_SYSTEM_PROMPT = """You are an AI coding agent working in a sandboxed project.
 
 You have access to these tools:
@@ -197,7 +209,7 @@ def run_agent_loop(
     for _ in range(max_turns):
         response = client.messages.create(
             model=model,
-            max_tokens=4096,
+            max_tokens=int(os.environ.get("AGENT_MAX_TOKENS", "2048")),
             system=AGENT_SYSTEM_PROMPT,
             tools=TOOLS,
             messages=messages,
@@ -272,6 +284,8 @@ def append_score(record: dict[str, Any]) -> None:
 
 
 def main() -> None:
+    _load_local_env()
+
     parser = argparse.ArgumentParser(description="Run a behavioral agent evaluation")
     parser.add_argument("task_id", help="Task id, e.g. task_001")
     parser.add_argument("model", help="Anthropic model name")

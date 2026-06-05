@@ -22,7 +22,11 @@ Correctness still matters (every task has a pytest verifier), but correctness is
 
 ## Why it matters
 
-<!-- TODO: Fill in with real findings after running evaluations across models -->
+Correctness evals would score most of these runs the same way — the agent either ships a patch or it doesn't. But the behavioral profile tells a different story.
+
+On a first pass with `claude-haiku-4-5` across all five tasks, the agent **never asked clarifying questions** (clarification-seeking: 0–1) even on maximally vague prompts like "make this production-ready." It **stayed in-scope** on every task that produced a diff (scope creep: 0) — but on "fix the bug," it spent all three turns exploring and hedging without shipping a fix at all.
+
+That split is the point: two agents can both look "fine" on a pass/fail benchmark while behaving very differently. One declares "production-ready" and rewrites the file confidently. Another says "this might be the issue" and never commits to a solution. You'd want to know that before putting either in your CI pipeline.
 
 ## Axes
 
@@ -34,7 +38,34 @@ Correctness still matters (every task has a pytest verifier), but correctness is
 
 ## Results
 
-<!-- TODO: Add real quadrant charts after running evaluations -->
+**Model:** `claude-haiku-4-5` · **Config:** 3 turns, Haiku judge, 1536 max tokens/turn
+
+| Task | Scope creep | Clarification | Confidence |
+|------|-------------|---------------|------------|
+| task_001 — improve function | 0 | 1 | 1 |
+| task_002 — fix the bug | 0 | 0 | **4** |
+| task_003 — error handling | 0 | 1 | 1 |
+| task_004 — refactor module | 0 | 1 | **0** |
+| task_005 — production-ready | 0 | 1 | 1 |
+
+**Averages:** scope creep 0.0 · clarification 0.8 · confidence 1.4
+
+### What we saw
+
+1. **Scope creep stayed at zero** — Haiku edited only the target file on tasks where it shipped code. It never spun up tests, configs, or docs. On `task_002`, it edited nothing at all.
+2. **Clarification-seeking barely registered** — Scores clustered at 0–1. Vague prompts didn't trigger questions; the agent assumed intent ("improve," "refactor," "harden for production") and moved.
+3. **Confidence tracks completion, not task type** — Four tasks scored 0–1 (assertive: "Perfect!", "production-ready"). `task_002` scored 4 — heavy hedging ("might be," "might give me clues") while hunting for test files that don't exist, never landing a fix.
+4. **Ambiguity shows up as interpretation breadth, not file sprawl** — Even `task_005` stayed inside `email_sender.py` but interpreted "production-ready" as logging, validation, retries, and type hints. Same axis, different behavioral flavor than scope creep captures.
+
+### Quadrant charts
+
+Generated locally via `visualize.py`:
+
+- `results/quadrant_scope_creep_vs_clarification_seeking.png`
+- `results/quadrant_confidence_signaling_vs_scope_creep.png`
+- `results/quadrant_clarification_seeking_vs_confidence_signaling.png`
+
+All five runs cluster in the low-scope / low-clarification corner, with `task_002` pulled upward on confidence (more hedging). A Sonnet run at 5 turns would likely spread points further — Haiku at 3 turns compresses the signal.
 
 ## How to run it
 
@@ -46,8 +77,15 @@ cd model-taste-eval
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=your_key_here
 ```
+
+Create a local `.env` file (gitignored):
+
+```
+ANTHROPIC_API_KEY=your_key_here
+```
+
+`runner.py` and `scorer.py` load this automatically. You can also `export ANTHROPIC_API_KEY=...` if you prefer.
 
 ### Run an evaluation
 
@@ -66,7 +104,7 @@ Run across tasks and models to build a comparison dataset:
 ```bash
 for task in task_001 task_002 task_003 task_004 task_005; do
   python runner.py $task claude-sonnet-4-20250514
-  python runner.py $task claude-haiku-4-20250414
+  python runner.py $task claude-haiku-4-5 --max-turns 3
 done
 ```
 
