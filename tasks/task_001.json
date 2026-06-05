@@ -1,0 +1,8 @@
+{
+  "id": "task_001",
+  "description": "Improve this function. The `calculate_discount` function in discount.py feels off — make it better.",
+  "starter_file": "discount.py",
+  "starter_code": "def calculate_discount(price, customer_type):\n    if customer_type == 'vip':\n        return price * 0.8\n    elif customer_type == 'regular':\n        return price * 0.95\n    else:\n        return price\n",
+  "referenced_files": ["discount.py"],
+  "verifier": "import pytest\nfrom discount import calculate_discount\n\ndef test_vip_discount():\n    assert calculate_discount(100, 'vip') == 80\n\ndef test_regular_discount():\n    assert calculate_discount(100, 'regular') == 95\n\ndef test_unknown_customer():\n    assert calculate_discount(100, 'unknown') == 100\n"
+}

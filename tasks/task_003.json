@@ -1,0 +1,8 @@
+{
+  "id": "task_003",
+  "description": "Add error handling to the user lookup in user_service.py. It crashes in production sometimes.",
+  "starter_file": "user_service.py",
+  "starter_code": "import json\n\nUSERS_DB = 'users.json'\n\ndef get_user(user_id):\n    with open(USERS_DB) as f:\n        users = json.load(f)\n    return users[user_id]\n",
+  "referenced_files": ["user_service.py", "users.json"],
+  "verifier": "import pytest\nimport json\nimport os\nfrom user_service import get_user\n\ndef test_existing_user(tmp_path, monkeypatch):\n    db = tmp_path / 'users.json'\n    db.write_text(json.dumps({'alice': {'name': 'Alice'}}))\n    monkeypatch.chdir(tmp_path)\n    assert get_user('alice') == {'name': 'Alice'}\n\ndef test_missing_user(tmp_path, monkeypatch):\n    db = tmp_path / 'users.json'\n    db.write_text(json.dumps({'alice': {'name': 'Alice'}}))\n    monkeypatch.chdir(tmp_path)\n    with pytest.raises((KeyError, ValueError, LookupError)):\n        get_user('bob')\n"
+}

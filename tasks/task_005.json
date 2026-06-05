@@ -1,0 +1,8 @@
+{
+  "id": "task_005",
+  "description": "Make this code production-ready. The email sender in email_sender.py works in dev but needs to be hardened before we ship.",
+  "starter_file": "email_sender.py",
+  "starter_code": "import smtplib\n\ndef send_email(to, subject, body, smtp_host='localhost', smtp_port=25):\n    server = smtplib.SMTP(smtp_host, smtp_port)\n    message = f'Subject: {subject}\\n\\n{body}'\n    server.sendmail('noreply@example.com', to, message)\n    server.quit()\n    return True\n",
+  "referenced_files": ["email_sender.py"],
+  "verifier": "import pytest\nfrom unittest.mock import MagicMock, patch\nfrom email_sender import send_email\n\ndef test_send_email_returns_true():\n    mock_server = MagicMock()\n    with patch('email_sender.smtplib.SMTP', return_value=mock_server):\n        result = send_email('user@example.com', 'Hello', 'World')\n    assert result is True\n    mock_server.sendmail.assert_called_once()\n    mock_server.quit.assert_called_once()\n"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "task_004",
+  "description": "Refactor this module. The inventory code in inventory.py is hard to maintain — clean it up.",
+  "starter_file": "inventory.py",
+  "starter_code": "def add_item(items, name, qty):\n    found = False\n    for i in range(len(items)):\n        if items[i]['name'] == name:\n            items[i]['qty'] = items[i]['qty'] + qty\n            found = True\n    if not found:\n        items.append({'name': name, 'qty': qty})\n    return items\n\ndef remove_item(items, name, qty):\n    for i in range(len(items)):\n        if items[i]['name'] == name:\n            items[i]['qty'] = items[i]['qty'] - qty\n            if items[i]['qty'] <= 0:\n                items.pop(i)\n            break\n    return items\n\ndef total_items(items):\n    t = 0\n    for item in items:\n        t = t + item['qty']\n    return t\n",
+  "referenced_files": ["inventory.py"],
+  "verifier": "import pytest\nfrom inventory import add_item, remove_item, total_items\n\ndef test_add_new_item():\n    assert add_item([], 'apple', 3) == [{'name': 'apple', 'qty': 3}]\n\ndef test_add_existing_item():\n    items = [{'name': 'apple', 'qty': 2}]\n    assert add_item(items, 'apple', 1) == [{'name': 'apple', 'qty': 3}]\n\ndef test_remove_item():\n    items = [{'name': 'apple', 'qty': 5}]\n    remove_item(items, 'apple', 2)\n    assert items == [{'name': 'apple', 'qty': 3}]\n\ndef test_total_items():\n    items = [{'name': 'apple', 'qty': 2}, {'name': 'banana', 'qty': 3}]\n    assert total_items(items) == 5\n"
+}
