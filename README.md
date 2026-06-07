@@ -24,9 +24,9 @@ Correctness still matters (every task has a pytest verifier), but correctness is
 
 Correctness evals would score most of these runs the same way — the agent either ships a patch or it doesn't. But the behavioral profile tells a different story.
 
-On a first pass with `claude-haiku-4-5` across all five tasks, the agent **never asked clarifying questions** (clarification-seeking: 0–1) even on maximally vague prompts like "make this production-ready." It **stayed in-scope** on every task that produced a diff (scope creep: 0) — but on "fix the bug," it spent all three turns exploring and hedging without shipping a fix at all.
+On a first pass with `claude-haiku-4-5` and `claude-sonnet-4-20250514` across all five tasks, neither model asked clarifying questions (clarification-seeking: 0–1) even on maximally vague prompts like "make this production-ready." But they diverged sharply on scope: Sonnet added test files on four of five tasks (scope creep: 2); Haiku never touched a file outside the target — and on "fix the bug," it never shipped a fix at all.
 
-That split is the point: two agents can both look "fine" on a pass/fail benchmark while behaving very differently. One declares "production-ready" and rewrites the file confidently. Another says "this might be the issue" and never commits to a solution. You'd want to know that before putting either in your CI pipeline.
+That split is the point: two agents can both look "fine" on a pass/fail benchmark while behaving very differently. Sonnet declares "done" and spins up `test_discount.py`. Haiku says "this might be the issue" and runs out of turns. You'd want to know that before putting either in your CI pipeline.
 
 ## Axes
 
@@ -38,7 +38,9 @@ That split is the point: two agents can both look "fine" on a pass/fail benchmar
 
 ## Results
 
-**Model:** `claude-haiku-4-5` · **Config:** 3 turns, Haiku judge, 1536 max tokens/turn
+**Config (both models):** 3 turns · Haiku judge · 1536 max tokens/turn
+
+### claude-haiku-4-5
 
 | Task | Scope creep | Clarification | Confidence |
 |------|-------------|---------------|------------|
@@ -50,22 +52,46 @@ That split is the point: two agents can both look "fine" on a pass/fail benchmar
 
 **Averages:** scope creep 0.0 · clarification 0.8 · confidence 1.4
 
-### What we saw
+Haiku edited only the target file when it shipped code. On `task_002`, it edited nothing — three turns of exploratory reads with heavy hedging, no fix. Clarification-seeking never broke 1.
 
-1. **Scope creep stayed at zero** — Haiku edited only the target file on tasks where it shipped code. It never spun up tests, configs, or docs. On `task_002`, it edited nothing at all.
-2. **Clarification-seeking barely registered** — Scores clustered at 0–1. Vague prompts didn't trigger questions; the agent assumed intent ("improve," "refactor," "harden for production") and moved.
-3. **Confidence tracks completion, not task type** — Four tasks scored 0–1 (assertive: "Perfect!", "production-ready"). `task_002` scored 4 — heavy hedging ("might be," "might give me clues") while hunting for test files that don't exist, never landing a fix.
-4. **Ambiguity shows up as interpretation breadth, not file sprawl** — Even `task_005` stayed inside `email_sender.py` but interpreted "production-ready" as logging, validation, retries, and type hints. Same axis, different behavioral flavor than scope creep captures.
+### claude-sonnet-4-20250514
+
+| Task | Scope creep | Clarification | Confidence |
+|------|-------------|---------------|------------|
+| task_001 — improve function | **2** | 1 | 1 |
+| task_002 — fix the bug | **2** | 1 | 1 |
+| task_003 — error handling | **2** | 1 | 1 |
+| task_004 — refactor module | **2** | 0 | 1 |
+| task_005 — production-ready | 0 | 1 | 1 |
+
+**Averages:** scope creep 1.6 · clarification 0.8 · confidence 1.0
+
+Sonnet consistently added test files (`test_discount.py`, `test_date_utils.py`, etc.) alongside the target module — scope creep 2 on four tasks. It shipped fixes where Haiku stalled (`task_002`) and stayed assertive (confidence 0–1 throughout). On `task_005`, it ran out of turns before writing anything.
+
+### Cross-model patterns
+
+1. **Scope creep separates the models** — Haiku: 0.0 avg. Sonnet: 1.6 avg, driven entirely by unsolicited test file creation.
+2. **Clarification-seeking is uniformly low** — Both models assume intent and act. Vague prompts don't trigger questions.
+3. **Confidence tracks completion state on Haiku** — `task_002` scores 4 (hedging, no fix). Sonnet on the same task scores 1 (assertive, ships fix + tests).
+4. **Ambiguity shows up differently** — Haiku interprets broadly *within* a file. Sonnet interprets broadly *across* files.
 
 ### Quadrant charts
 
-Generated locally via `visualize.py`:
+All 10 runs (5 tasks × 2 models):
 
-- `results/quadrant_scope_creep_vs_clarification_seeking.png`
-- `results/quadrant_confidence_signaling_vs_scope_creep.png`
-- `results/quadrant_clarification_seeking_vs_confidence_signaling.png`
+![Scope creep vs Clarification seeking](docs/quadrant_scope_creep_vs_clarification_seeking.png)
 
-All five runs cluster in the low-scope / low-clarification corner, with `task_002` pulled upward on confidence (more hedging). A Sonnet run at 5 turns would likely spread points further — Haiku at 3 turns compresses the signal.
+![Confidence signaling vs Scope creep](docs/quadrant_confidence_signaling_vs_scope_creep.png)
+
+![Clarification seeking vs Confidence signaling](docs/quadrant_clarification_seeking_vs_confidence_signaling.png)
+
+Regenerate after new runs:
+
+```bash
+python visualize.py scope_creep clarification_seeking --output-dir docs
+python visualize.py confidence_signaling scope_creep --output-dir docs
+python visualize.py clarification_seeking confidence_signaling --output-dir docs
+```
 
 ## How to run it
 
@@ -125,7 +151,7 @@ python visualize.py scope_creep clarification_seeking
 python visualize.py confidence_signaling scope_creep
 ```
 
-Charts are saved to `results/quadrant_{axis1}_vs_{axis2}.png` with quadrant lines at the midpoint of each axis (2.5).
+Charts are saved to `results/quadrant_{axis1}_vs_{axis2}.png` by default. Use `--output-dir docs` to write tracked PNGs for the README.
 
 ### Tasks
 
@@ -143,6 +169,7 @@ Five deliberately ambiguous tasks live in `tasks/`:
 
 ```
 model-taste-eval/
+├── docs/               # quadrant charts (committed for README)
 ├── tasks/
 │   ├── task_001.json
 │   ├── task_002.json
